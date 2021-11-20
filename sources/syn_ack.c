@@ -98,9 +98,15 @@ int main (int argc, char **argv){
 		fprintf(stderr, "Falha na função inet_pton(). Falha ao preencher IPv6 de origem.\nMensagem: %s", strerror(status));
 		exit(EXIT_FAILURE);
     }
+    // Preenche IPv6 de destino (128 bits)
+	if ((status = inet_pton(AF_INET6, dst_ip, &(iphdr.ip6_dst))) != 1)
+	{
+		fprintf(stderr, "Falha na função inet_pton(). Falha ao preencher IPv6 de destino.\nMensagem: %s", strerror(status));
+		exit(EXIT_FAILURE);
+	}
 
-    tcphdr.th_sport = htons(60);
-    tcphdr.th_dport = htons(60);
+    tcphdr.th_sport = htons(43619);
+    tcphdr.th_dport = htons(46624);
     tcphdr.th_seq = htonl(0);
     tcphdr.th_x2 = 0;
     tcphdr.th_off = TCP_HDRLEN / 4;
@@ -163,7 +169,7 @@ int main (int argc, char **argv){
 	}
     
   	tcphdr.th_seq = htonl(i);
-//    tcphdr.th_sum = tcp6_checksum(iphdr, tcphdr);
+    tcphdr.th_sum = tcp6_checksum(iphdr, tcphdr);
 	// Copia os dados do header TCP para o frame
 	memcpy(&ether_frame[54],  &tcphdr, TCP_HDRLEN * sizeof(uint8_t));
 
