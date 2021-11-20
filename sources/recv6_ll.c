@@ -33,7 +33,7 @@
 
 // Function prototypes
 uint16_t checksum (uint16_t *, int);
-uint16_t icmp6_checksum (struct ip6_hdr, struct icmp6_hdr, uint8_t *, int);
+
 char *allocate_strmem (int);
 uint8_t *allocate_ustrmem (int);
 
@@ -41,7 +41,7 @@ int
 main (int argc, char **argv) {
 
 	int i, status,  sendsd, recvsd, bytes, timeout ;
-	uint8_t src_mac[6], dst_mac[6], recv_ether_frame[IP_MAXPACKET];
+	uint8_t *src_mac, *dst_mac, recv_ether_frame[IP_MAXPACKET];
 	char interface[40], target[INET6_ADDRSTRLEN], src_ip[INET6_ADDRSTRLEN], dst_ip[INET6_ADDRSTRLEN],dst[INET6_ADDRSTRLEN];
 	struct ip6_hdr send_iphdr, *recv_iphdr;
 
@@ -51,8 +51,9 @@ main (int argc, char **argv) {
 	struct sockaddr from;
 	socklen_t fromlen;
 
-  struct tcphdr *tcphdr;
-
+    struct tcphdr *tcphdr;
+    src_mac = allocate_ustrmem(6);
+    dst_mac = allocate_ustrmem(6);
 	// Interface to send packet through.
 	if (argc > 1)
 		strcpy(interface, argv[1]);
@@ -147,3 +148,5 @@ main (int argc, char **argv) {
 
 	return (EXIT_SUCCESS);
 }
+
+
