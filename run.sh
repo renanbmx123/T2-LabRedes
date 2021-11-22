@@ -1,6 +1,7 @@
 
 #/bin/zsh
 
+make clean
 make syn_ack recv6_ll
 
 echo ""
@@ -29,7 +30,7 @@ echo ""
 echo ""
 echo ""
 
-echo "selecione: (1) vitima, 2(atacante) ?"
+echo "selecione: (1) vitima, (2) atacante?"
 read option;
 
 # pegando nome da interface e ip versão 6 da maquina.

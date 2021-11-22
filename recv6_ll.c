@@ -37,10 +37,9 @@ int main (int argc, char **argv) {
 
 	int i, status,  sendsd, recvsd ;
 	uint8_t src_mac[6], dst_mac[6], recv_ether_frame[IP_MAXPACKET];
-	char interface[16], target[INET6_ADDRSTRLEN], src_ip[INET6_ADDRSTRLEN], dst[INET6_ADDRSTRLEN];
+	char interface[16], target[INET6_ADDRSTRLEN], dst[INET6_ADDRSTRLEN];
 	struct ip6_hdr *recv_iphdr;
-
-
+    struct ethhdr *eth;
 	struct sockaddr_ll device;
 	struct ifreq ifr;
 	struct sockaddr from;
@@ -49,7 +48,6 @@ int main (int argc, char **argv) {
     struct tcphdr *tcphdr;
 
     memset((uint8_t *)src_mac, 0, 6 * sizeof(uint8_t));
-    
 	memset((uint8_t *)dst_mac, 0, 6 * sizeof(uint8_t));
 
     
@@ -76,7 +74,7 @@ int main (int argc, char **argv) {
 
 	// Copy source MAC address.
 	memcpy (src_mac, ifr.ifr_hwaddr.sa_data, 6 * sizeof (uint8_t));
-
+    
 	// Report source MAC address to stdout.
 	printf ("MAC address for interface %s is ", interface);
 	for (i = 0; i < 5; i++) {
@@ -101,7 +99,7 @@ int main (int argc, char **argv) {
 		exit (EXIT_FAILURE);
 	}
 
-
+    eth =(struct ethhdr *) (recv_ether_frame);
 	// Cast recv_iphdr as pointer to IPv6 header within received ethernet frame.
 	recv_iphdr = (struct ip6_hdr *) (recv_ether_frame + ETH_HDRLEN);
 
@@ -125,18 +123,22 @@ int main (int argc, char **argv) {
 				fprintf (stderr, "inet_ntop() failed.\nError message: %s", strerror (status));
 				exit (EXIT_FAILURE);
 			}
-      memcpy((char *)src_mac, recv_ether_frame, 6);
-      memcpy((char *)dst_mac, recv_ether_frame+6, 6);
-      
+
+    
       inet_ntop(AF_INET6, &(recv_iphdr->ip6_dst), dst, INET6_ADDRSTRLEN);
       // TODO pegar as portas e as flags tcp
-      inet_ntop(AF_INET6, &(tcphdr->th_flags), flags, 2 );
+      inet_ntop(AF_INET6, &(tcphdr->th_flags), (char *)flags, 2);
 			// Report 
-      printf("\n");
-      printf ("MAC Origem - MAC Destino - IPV6 Origem - IPV6 Destino - Flags do Cabecalho TCP\n");
-      printf ("%s - %s - %s - %s - %s", dst_mac, src_mac, dst, target, flags);
       printf ("\n");
-  printf("Recv IP:%s ",dst);
+      printf ("             MAC Origem                 MAC Destino                IPV6 Origem                IPV6 Destino               Flags do Cabecalho TCP[rst - syn - fin]\n");
+      printf ("         %02x:%02x:%02x:%02x:%02x:%02x    ", eth->h_dest[0], eth->h_dest[1], eth->h_dest[2], eth->h_dest[3], eth->h_dest[4], eth->h_dest[5]);
+      printf ("         %02x:%02x:%02x:%02x:%02x:%02x    ", eth->h_source[0], eth->h_source[1],eth->h_source[2], eth->h_source[3], eth->h_source[4], eth->h_source[5]);
+      printf (" %-*s  ",25, target);
+          printf ("  %-*s ",25,dst);
+      printf ("             [RST:%02x - SYN:%02x - FIN:%02x]",tcphdr->rst, tcphdr->syn, tcphdr->fin);
+
+      printf ("\n");
+
 		}
 	}  // End of Receive loop.
 
