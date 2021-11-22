@@ -31,19 +31,14 @@
 #define IP6_HDRLEN 40  // IPv6 header length
 #define ICMP_HDRLEN 8  // ICMP header length for echo request, excludes data
 
-// Function prototypes
-uint16_t checksum (uint16_t *, int);
 
-char *allocate_strmem (int);
-uint8_t *allocate_ustrmem (int);
 
-int
-main (int argc, char **argv) {
+int main (int argc, char **argv) {
 
-	int i, status,  sendsd, recvsd, bytes, timeout ;
-	uint8_t *src_mac, *dst_mac, recv_ether_frame[IP_MAXPACKET];
-	char interface[40], target[INET6_ADDRSTRLEN], src_ip[INET6_ADDRSTRLEN], dst_ip[INET6_ADDRSTRLEN],dst[INET6_ADDRSTRLEN];
-	struct ip6_hdr send_iphdr, *recv_iphdr;
+	int i, status,  sendsd, recvsd ;
+	uint8_t src_mac[6], dst_mac[6], recv_ether_frame[IP_MAXPACKET];
+	char interface[16], target[INET6_ADDRSTRLEN], src_ip[INET6_ADDRSTRLEN], dst[INET6_ADDRSTRLEN];
+	struct ip6_hdr *recv_iphdr;
 
 
 	struct sockaddr_ll device;
@@ -52,8 +47,12 @@ main (int argc, char **argv) {
 	socklen_t fromlen;
 
     struct tcphdr *tcphdr;
-    src_mac = allocate_ustrmem(6);
-    dst_mac = allocate_ustrmem(6);
+
+    memset((uint8_t *)src_mac, 0, 6 * sizeof(uint8_t));
+    
+	memset((uint8_t *)dst_mac, 0, 6 * sizeof(uint8_t));
+
+    
 	// Interface to send packet through.
 	if (argc > 1)
 		strcpy(interface, argv[1]);
@@ -110,13 +109,13 @@ main (int argc, char **argv) {
  
   // Cast recv_tcphdr as pointer to TCP header within received ethernet frame
   tcphdr = (struct tcphdr *)(recv_ether_frame + ETH_HDRLEN + IP6_HDRLEN);
-  uint8_t flags[2];
+    char flags[2];
 	for (;;) {
 
 		memset (recv_ether_frame, 0, IP_MAXPACKET * sizeof (uint8_t));
 		memset (&from, 0, sizeof (from));
 		fromlen = sizeof (from);
-		bytes = recvfrom (recvsd, recv_ether_frame, IP_MAXPACKET, 0, (struct sockaddr *) &from, &fromlen);
+		recvfrom (recvsd, recv_ether_frame, IP_MAXPACKET, 0, (struct sockaddr *) &from, &fromlen);
 
 		// Check for an IP ethernet frame, carrying ICMP echo reply. If not, ignore and keep listening.
 		if (((recv_ether_frame[12] << 8) + recv_ether_frame[13]) == ETH_P_IPV6) {
@@ -148,5 +147,4 @@ main (int argc, char **argv) {
 
 	return (EXIT_SUCCESS);
 }
-
 

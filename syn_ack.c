@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -13,6 +14,7 @@
 #include <linux/if_packet.h> // sockaddr_ll struct
 #include <netinet/ip.h>
 #include <linux/if_ether.h> // ETH_P_ALL
+#include <arpa/inet.h>
 
 
 // Constantes
@@ -20,42 +22,47 @@
 #define IP6_HDRLEN 40 // Header IPV6
 #define TCP_HDRLEN 20 // Header TCP without data
 
+
+uint16_t tcp6_checksum(struct ip6_hdr iphdr, struct tcphdr tcphdr);
 uint16_t checksum(uint16_t* addr, int len);
-uint16_t tcp6_checksum(struct ip6_hdr, struct tcphdr);
-char *allocate_strmem(int);
-uint8_t *allocate_ustrmem(int);
-uint16_t *allocate_intmem(int);
 
 int main (int argc, char **argv){
 
-    int i, status, frame_length, sd, bytes;
-    uint8_t *src_mac, *dst_mac, *ether_frame, *aux_etherf;
-    uint16_t *tcp_flags;
-    char *iface, *target, *src_ip, *dst_ip;
-    
+    int      i, status, frame_length, sd, bytes;
+    uint8_t  src_mac[6], dst_mac[6], ether_frame[IP_MAXPACKET];
+    int tcp_flags[8];
+    uint8_t  iface[16], target[INET6_ADDRSTRLEN], src_ip[INET6_ADDRSTRLEN], dst_ip[INET6_ADDRSTRLEN];
+ 
     struct ip6_hdr iphdr;
     struct tcphdr tcphdr;
-    struct addrinfo *res;
-    struct sockaddr_in6 *ipv6;
     struct sockaddr_ll device;
     struct ifreq ifr;
 
-    src_mac = allocate_ustrmem(6);
-    dst_mac = allocate_ustrmem(6);
 
-    ether_frame = allocate_ustrmem(IP_MAXPACKET);
+    if (argc == 0){
+        return 0;
+    }
+	memset(src_mac, 0, 6 * sizeof(uint8_t));
 
-    iface  = allocate_strmem(40);
-    target =  allocate_strmem(INET6_ADDRSTRLEN);
-    src_ip = allocate_strmem(INET6_ADDRSTRLEN);
-    dst_ip = allocate_strmem(INET6_ADDRSTRLEN);
-    tcp_flags = allocate_intmem(8);
+	memset(dst_mac, 0, 6 * sizeof(uint8_t));
 
-    strcpy(iface, argv[1]);
+    memset(ether_frame, 0, IP_MAXPACKET * sizeof(uint8_t));
+
+	memset(iface, 0, 16 * sizeof(uint8_t));
+
+    memset(target, 0,  INET6_ADDRSTRLEN * sizeof(uint8_t));
+
+	memset(src_ip, 0, INET6_ADDRSTRLEN * sizeof(uint8_t));
+
+	memset(dst_ip, 0, INET6_ADDRSTRLEN * sizeof(uint8_t));
+
+	memset(tcp_flags, 0, 8 * sizeof(int));
+
+    strcpy((char *)iface, argv[1]);
 
     if((sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0){
         perror("falha ao executar socket(). Falha ao criar socket descriptor ioctl().");
-        return (-1);
+        exit  (EXIT_FAILURE);
 
     }
     
@@ -63,13 +70,13 @@ int main (int argc, char **argv){
     snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", iface);
     if (ioctl(sd, SIOCGIFHWADDR, &ifr) < 0){
         perror("falha ao executar ioctl(). Falha ao obter MAC address de origer");
-        return (-1);
+        exit (EXIT_FAILURE);
     }
     memcpy(src_mac, ifr.ifr_hwaddr.sa_data, 6 * sizeof(uint8_t));
     
     memset(&device, 0, sizeof(device));
 
-    device.sll_ifindex = if_nametoindex(iface);
+    device.sll_ifindex = if_nametoindex((char *)iface);
     if(device.sll_ifindex ==0){
         perror("Falha ao executar if_nametoindex(); Falha ao obter index da interface");
         exit(-1);
@@ -82,8 +89,8 @@ int main (int argc, char **argv){
     dst_mac[4] = 0xff;
     dst_mac[5] = 0xff;
 
-    strcpy(src_ip, argv[2]);
-    strcpy(dst_ip, argv[3]);
+    strcpy((char *)src_ip, (char *)argv[2]);
+    strcpy((char *)dst_ip, (char *)argv[3]);
 
     device.sll_family = AF_PACKET;
     memcpy(device.sll_addr, src_mac, 6*sizeof(uint8_t));
@@ -93,13 +100,13 @@ int main (int argc, char **argv){
     iphdr.ip6_nxt = IPPROTO_TCP;
     iphdr.ip6_hops = 255;
 
-    if((status = inet_pton(AF_INET6, src_ip, &(iphdr.ip6_src))) !=1){
+    if((status = inet_pton(AF_INET6, (char *)src_ip, &(iphdr.ip6_src))) !=1){
         
 		fprintf(stderr, "Falha na função inet_pton(). Falha ao preencher IPv6 de origem.\nMensagem: %s", strerror(status));
 		exit(EXIT_FAILURE);
     }
     // Preenche IPv6 de destino (128 bits)
-	if ((status = inet_pton(AF_INET6, dst_ip, &(iphdr.ip6_dst))) != 1)
+	if ((status = inet_pton(AF_INET6, (char *)dst_ip, &(iphdr.ip6_dst))) != 1)
 	{
 		fprintf(stderr, "Falha na função inet_pton(). Falha ao preencher IPv6 de destino.\nMensagem: %s", strerror(status));
 		exit(EXIT_FAILURE);
@@ -178,7 +185,7 @@ int main (int argc, char **argv){
 	}
 
 	// Fecha o Socket
-	pclose(sd);
+	//pclose(sd);
 
 	// Libera memória alocada
 	free(src_mac);
@@ -188,9 +195,6 @@ int main (int argc, char **argv){
 	free(src_ip);
 	free(dst_ip);
 	free(tcp_flags);
-
-
-    return (EXIT_SUCCESS);
 
 }
 
@@ -229,6 +233,7 @@ uint16_t checksum(uint16_t *addr, int len){
 }
 
 // Constrói o IPv6 TCP pseudo-header e chama o checksum (Section 8.1 of RFC 2460).
+//
 uint16_t tcp6_checksum(struct ip6_hdr iphdr, struct tcphdr tcphdr){
 	uint32_t lvalue;
 	char buf[IP_MAXPACKET], cvalue;
@@ -320,71 +325,3 @@ uint16_t tcp6_checksum(struct ip6_hdr iphdr, struct tcphdr tcphdr){
 	return checksum((uint16_t *)buf, chksumlen);
 }
 
-// Aloca memória para um array de char.
-char *allocate_strmem(int len){
-	void *tmp;
-
-	if (len <= 0)
-	{
-		fprintf(stderr, "ERROR: Cannot allocate memory because len = %i in allocate_strmem().\n", len);
-		exit(EXIT_FAILURE);
-	}
-
-	tmp = (char *)malloc(len * sizeof(char));
-	if (tmp != NULL)
-	{
-		memset(tmp, 0, len * sizeof(char));
-		return (tmp);
-	}
-	else
-	{
-		fprintf(stderr, "ERROR: Cannot allocate memory for array allocate_strmem().\n");
-		exit(EXIT_FAILURE);
-	}
-}
-
-// Aloca memória para um array de unsigned char.
-uint8_t *allocate_ustrmem(int len){
-	void *tmp;
-
-	if (len <= 0)
-	{
-		fprintf(stderr, "ERROR: Cannot allocate memory because len = %i in allocate_ustrmem().\n", len);
-		exit(EXIT_FAILURE);
-	}
-
-	tmp = (uint8_t *)malloc(len * sizeof(uint8_t));
-	if (tmp != NULL)
-	{
-		memset(tmp, 0, len * sizeof(uint8_t));
-		return (tmp);
-	}
-	else
-	{
-		fprintf(stderr, "ERROR: Cannot allocate memory for array allocate_ustrmem().\n");
-		exit(EXIT_FAILURE);
-	}
-}
-
-// Aloca memória para um array de inteiros
-uint16_t *allocate_intmem(int len){
-	void *tmp;
-
-	if (len <= 0)
-	{
-		fprintf(stderr, "ERROR: Cannot allocate memory because len = %i in allocate_intmem().\n", len);
-		exit(EXIT_FAILURE);
-	}
-
-	tmp = (int *)malloc(len * sizeof(int));
-	if (tmp != NULL)
-	{
-		memset(tmp, 0, len * sizeof(int));
-		return (tmp);
-	}
-	else
-	{
-		fprintf(stderr, "ERROR: Cannot allocate memory for array allocate_intmem().\n");
-		exit(EXIT_FAILURE);
-	}
-}
