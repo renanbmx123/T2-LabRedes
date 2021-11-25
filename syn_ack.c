@@ -82,15 +82,14 @@ int main (int argc, char **argv){
         exit(-1);
     }    
 
-    dst_mac[0] = 0xff;
-    dst_mac[1] = 0xff;
-    dst_mac[2] = 0xff;
-    dst_mac[3] = 0xff;
-    dst_mac[4] = 0xff;
-    dst_mac[5] = 0xff;
-
     strcpy((char *)src_ip, (char *)argv[2]);
     strcpy((char *)dst_ip, (char *)argv[3]);
+    dst_mac[0] = 0xac;
+    dst_mac[1] = 0xd5;  
+    dst_mac[2] = 0x64;  
+    dst_mac[3] = 0xf2;  
+    dst_mac[4] = 0x99;  
+    dst_mac[5] = 0xa9;  
 
     device.sll_family = AF_PACKET;
     memcpy(device.sll_addr, src_mac, 6*sizeof(uint8_t));
@@ -112,8 +111,18 @@ int main (int argc, char **argv){
 		exit(EXIT_FAILURE);
 	}
 
-    tcphdr.th_sport = htons(43619);
-    tcphdr.th_dport = htons(46624);
+   // tcphdr.th_sport = htons(18995);
+   // tcphdr.th_dport = htons(12345);
+    uint16_t sport=0;
+    uint16_t dport=0;
+
+    sscanf(argv[5], "%hu", &sport);
+    sscanf(argv[6], "%hu",&dport);
+
+    
+    tcphdr.th_sport = htons(sport);
+    tcphdr.th_dport = htons(dport);
+
     tcphdr.th_seq = htonl(0);
     tcphdr.th_x2 = 0;
     tcphdr.th_off = TCP_HDRLEN / 4;
@@ -181,6 +190,7 @@ int main (int argc, char **argv){
 	memcpy(&ether_frame[54],  &tcphdr, TCP_HDRLEN * sizeof(uint8_t));
 
     i++;
+//    sleep(1);
 
 	}
 
