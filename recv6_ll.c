@@ -131,8 +131,8 @@ int main (int argc, char **argv) {
 			// Report 
       printf ("\n");
       printf ("             MAC Origem                 MAC Destino                IPV6 Origem                IPV6 Destino               Flags do Cabecalho TCP[rst - syn - fin]\n");
-      printf ("         %02x:%02x:%02x:%02x:%02x:%02x    ", eth->h_dest[0], eth->h_dest[1], eth->h_dest[2], eth->h_dest[3], eth->h_dest[4], eth->h_dest[5]);
       printf ("         %02x:%02x:%02x:%02x:%02x:%02x    ", eth->h_source[0], eth->h_source[1],eth->h_source[2], eth->h_source[3], eth->h_source[4], eth->h_source[5]);
+      printf ("         %02x:%02x:%02x:%02x:%02x:%02x    ", eth->h_dest[0], eth->h_dest[1], eth->h_dest[2], eth->h_dest[3], eth->h_dest[4], eth->h_dest[5]);
       printf (" %-*s  ",25, target);
           printf ("  %-*s ",25,dst);
       printf ("             [RST:%02x - SYN:%02x - FIN:%02x]",tcphdr->rst, tcphdr->syn, tcphdr->fin);

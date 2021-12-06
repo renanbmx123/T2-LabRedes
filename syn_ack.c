@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <sys/ioctl.h>
-
+#include <time.h>
 
 // RawSocket
 #include <netinet/ip6.h> // IPV6 struct
@@ -84,12 +84,12 @@ int main (int argc, char **argv){
         exit(-1);
     }    
 
-    dst_mac[0] = 0x00;
-    dst_mac[1] = 0x00;
-    dst_mac[2] = 0x00;
-    dst_mac[3] = 0xaa;
-    dst_mac[4] = 0x00;
-    dst_mac[5] = 0x00;
+    dst_mac[0] = 0xac;
+    dst_mac[1] = 0xd5;
+    dst_mac[2] = 0x64;
+    dst_mac[3] = 0xf2;
+    dst_mac[4] = 0x99;
+    dst_mac[5] = 0xa9;
    
     strcpy((char *)dst_ip, (char *)argv[2]);
     ipv6_gen(src_ip);
@@ -132,7 +132,6 @@ int main (int argc, char **argv){
 
     tcphdr.th_flags = 0;
     for(i = 0; i<8;i++){
-
         tcphdr.th_flags += (tcp_flags[i] << i);
     }
 
@@ -169,46 +168,30 @@ int main (int argc, char **argv){
 
 
 	i = 1;
-    char ip_str[] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
 	for(int j =0; j < 1000; j++){
-        
-	// Envia o pacote
-	if ((bytes = sendto(sd, ether_frame, frame_length, 0, (struct sockaddr *)&device, sizeof(device))) <= 0)
-	{
-		perror("Falha ao executar função sendto(). Falha ao enviar pacote.");
-		exit(EXIT_FAILURE);
-	}
-    ipv6_gen(src_ip);
+        // Envia o pacote
+        if ((bytes = sendto(sd, ether_frame, frame_length, 0, (struct sockaddr *)&device, sizeof(device))) <= 0){
+            perror("Falha ao executar função sendto(). Falha ao enviar pacote.");
+            exit(EXIT_FAILURE);
+        }
+        ipv6_gen(src_ip);
+        // Copia os dados do header ip
+   	    if((status = inet_pton(AF_INET6, (char *)src_ip, &(iphdr.ip6_src))) !=1){
+   	        fprintf(stderr, "laço Falha na função inet_pton(). Falha ao preencher IPv6 de origem.\nMensagem: %s", strerror(status));
+        	exit(EXIT_FAILURE);
+        }
 
-   	// Copia os dados do header ip
-   	if((status = inet_pton(AF_INET6, (char *)src_ip, &(iphdr.ip6_src))) !=1){
-   	fprintf(stderr, "laço Falha na função inet_pton(). Falha ao preencher IPv6 de origem.\nMensagem: %s", strerror(status));
-  	exit(EXIT_FAILURE);
+  	    tcphdr.th_sport = htons(rand() % 9999); // random tcp port
+      	tcphdr.th_seq = htonl(i);
+      	tcphdr.th_sum = tcp6_checksum(iphdr, tcphdr);
+      	memcpy(ether_frame + ETH_HDRLEN, &iphdr, IP6_HDRLEN * sizeof(uint8_t));
+    	// Copia os dados do header TCP para o frame
+    	memcpy(&ether_frame[54],  &tcphdr, TCP_HDRLEN * sizeof(uint8_t));
+
+        i++;
     }
 
-  	tcphdr.th_sport = htons(rand() % 99999); // random tcp port
-  	tcphdr.th_seq = htonl(i);
-  	tcphdr.th_sum = tcp6_checksum(iphdr, tcphdr);
-  	memcpy(ether_frame + ETH_HDRLEN, &iphdr, IP6_HDRLEN * sizeof(uint8_t));
-	// Copia os dados do header TCP para o frame
-	memcpy(&ether_frame[54],  &tcphdr, TCP_HDRLEN * sizeof(uint8_t));
-
-    i++;
-    *ether_frame -= (ETH_HDRLEN + IP6_HDRLEN + TCP_HDRLEN);
-
-	}
-
 	// Fecha o Socket
-	//pclose(sd);
-
-	// Libera memória alocada
-	//free(src_mac);
-	//free(dst_mac);
-	//free(ether_frame);
-	//free(iface);
-	//free(src_ip);
-	//free(dst_ip);
-	//free(tcp_flags);
 
 }
 
