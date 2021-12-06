@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -15,6 +14,7 @@
 #include <netinet/ip.h>
 #include <linux/if_ether.h> // ETH_P_ALL
 #include <arpa/inet.h>
+#include <sys/types.h>
 
 
 // Constantes
@@ -25,10 +25,12 @@
 
 uint16_t tcp6_checksum(struct ip6_hdr iphdr, struct tcphdr tcphdr);
 uint16_t checksum(uint16_t* addr, int len);
+void ipv6_gen(uint8_t* ip);
 
 int main (int argc, char **argv){
 
-    int      i, status, frame_length, sd, bytes;
+    time_t t;
+    int i, status, frame_length, sd, bytes;
     uint8_t  src_mac[6], dst_mac[6], ether_frame[IP_MAXPACKET];
     int tcp_flags[8];
     uint8_t  iface[16], target[INET6_ADDRSTRLEN], src_ip[INET6_ADDRSTRLEN], dst_ip[INET6_ADDRSTRLEN];
@@ -65,7 +67,7 @@ int main (int argc, char **argv){
         exit  (EXIT_FAILURE);
 
     }
-    
+
     memset(&ifr, 0, sizeof(ifr));
     snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", iface);
     if (ioctl(sd, SIOCGIFHWADDR, &ifr) < 0){
@@ -73,7 +75,7 @@ int main (int argc, char **argv){
         exit (EXIT_FAILURE);
     }
     memcpy(src_mac, ifr.ifr_hwaddr.sa_data, 6 * sizeof(uint8_t));
-    
+
     memset(&device, 0, sizeof(device));
 
     device.sll_ifindex = if_nametoindex((char *)iface);
@@ -82,15 +84,16 @@ int main (int argc, char **argv){
         exit(-1);
     }    
 
-    strcpy((char *)src_ip, (char *)argv[2]);
-    strcpy((char *)dst_ip, (char *)argv[3]);
-    dst_mac[0] = 0xac;
-    dst_mac[1] = 0xd5;  
-    dst_mac[2] = 0x64;  
-    dst_mac[3] = 0xf2;  
-    dst_mac[4] = 0x99;  
-    dst_mac[5] = 0xa9;  
-
+    dst_mac[0] = 0x00;
+    dst_mac[1] = 0x00;
+    dst_mac[2] = 0x00;
+    dst_mac[3] = 0xaa;
+    dst_mac[4] = 0x00;
+    dst_mac[5] = 0x00;
+   
+    strcpy((char *)dst_ip, (char *)argv[2]);
+    ipv6_gen(src_ip);
+	printf("\nip 1: %s\n",src_ip);
     device.sll_family = AF_PACKET;
     memcpy(device.sll_addr, src_mac, 6*sizeof(uint8_t));
     device.sll_halen = 6;
@@ -100,8 +103,7 @@ int main (int argc, char **argv){
     iphdr.ip6_hops = 255;
 
     if((status = inet_pton(AF_INET6, (char *)src_ip, &(iphdr.ip6_src))) !=1){
-        
-		fprintf(stderr, "Falha na função inet_pton(). Falha ao preencher IPv6 de origem.\nMensagem: %s", strerror(status));
+		fprintf(stderr, "Inicio Falha na função inet_pton(). Falha ao preencher IPv6 de origem.\nMensagem: %s ", strerror(status));
 		exit(EXIT_FAILURE);
     }
     // Preenche IPv6 de destino (128 bits)
@@ -111,18 +113,10 @@ int main (int argc, char **argv){
 		exit(EXIT_FAILURE);
 	}
 
-   // tcphdr.th_sport = htons(18995);
-   // tcphdr.th_dport = htons(12345);
-    uint16_t sport=0;
-    uint16_t dport=0;
+    srand((unsigned) time(&t));
 
-    sscanf(argv[5], "%hu", &sport);
-    sscanf(argv[6], "%hu",&dport);
-
-    
-    tcphdr.th_sport = htons(sport);
-    tcphdr.th_dport = htons(dport);
-
+    tcphdr.th_sport = htons(rand() % 99999);
+    tcphdr.th_dport = htons(4444);
     tcphdr.th_seq = htonl(0);
     tcphdr.th_x2 = 0;
     tcphdr.th_off = TCP_HDRLEN / 4;
@@ -175,7 +169,8 @@ int main (int argc, char **argv){
 
 
 	i = 1;
-	while (1){
+    char ip_str[] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
+	for(int j =0; j < 1000; j++){
         
 	// Envia o pacote
 	if ((bytes = sendto(sd, ether_frame, frame_length, 0, (struct sockaddr *)&device, sizeof(device))) <= 0)
@@ -183,14 +178,23 @@ int main (int argc, char **argv){
 		perror("Falha ao executar função sendto(). Falha ao enviar pacote.");
 		exit(EXIT_FAILURE);
 	}
-    
+    ipv6_gen(src_ip);
+
+   	// Copia os dados do header ip
+   	if((status = inet_pton(AF_INET6, (char *)src_ip, &(iphdr.ip6_src))) !=1){
+   	fprintf(stderr, "laço Falha na função inet_pton(). Falha ao preencher IPv6 de origem.\nMensagem: %s", strerror(status));
+  	exit(EXIT_FAILURE);
+    }
+
+  	tcphdr.th_sport = htons(rand() % 99999); // random tcp port
   	tcphdr.th_seq = htonl(i);
-    tcphdr.th_sum = tcp6_checksum(iphdr, tcphdr);
+  	tcphdr.th_sum = tcp6_checksum(iphdr, tcphdr);
+  	memcpy(ether_frame + ETH_HDRLEN, &iphdr, IP6_HDRLEN * sizeof(uint8_t));
 	// Copia os dados do header TCP para o frame
 	memcpy(&ether_frame[54],  &tcphdr, TCP_HDRLEN * sizeof(uint8_t));
 
     i++;
-//    sleep(1);
+    *ether_frame -= (ETH_HDRLEN + IP6_HDRLEN + TCP_HDRLEN);
 
 	}
 
@@ -198,16 +202,38 @@ int main (int argc, char **argv){
 	//pclose(sd);
 
 	// Libera memória alocada
-	free(src_mac);
-	free(dst_mac);
-	free(ether_frame);
-	free(iface);
-	free(src_ip);
-	free(dst_ip);
-	free(tcp_flags);
+	//free(src_mac);
+	//free(dst_mac);
+	//free(ether_frame);
+	//free(iface);
+	//free(src_ip);
+	//free(dst_ip);
+	//free(tcp_flags);
 
 }
 
+
+void ipv6_gen(uint8_t src_ip[]){
+    uint8_t ip[INET6_ADDRSTRLEN];
+    static char str[] ={'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
+    int i = 0;
+    memset(src_ip, 0, INET6_ADDRSTRLEN * sizeof(u_int8_t));
+    memset(ip, 0, INET6_ADDRSTRLEN * sizeof(u_int8_t));
+   
+	for(int j=0;j<8;j++){
+		for(int k=0;k<4;k++){
+			ip[i] = str[rand()%16];		
+            i++;
+		}
+        if(j < 7){
+			ip[i] = ':';
+		}
+	    i++;
+	}
+    
+    strcpy((char *)src_ip, (char *)ip);
+
+}
 
 // Calcula o Checksum (RFC 1071)
 uint16_t checksum(uint16_t *addr, int len){
